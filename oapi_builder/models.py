@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http import HTTPStatus
+from typing import List
 from collections import OrderedDict
 
 from oapi_builder.mixins import ContentMixin, HeaderMixin, ParameterMixin
@@ -18,8 +19,8 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
     """
     status_code: int
     description: str = ""
-    tags = []
-    links = []  # https://swagger.io/specification/#link-object
+    tags: List = field(default_factory=lambda: [])
+    links: List = field(default_factory=lambda: [])  # https://swagger.io/specification/#link-object
 
     def __post_init__(self):
         if not self.description:
@@ -33,7 +34,6 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
     @classmethod
     def get_defaults(cls, status_list: list) -> list:
         assert all(isinstance(status, int) for status in status_list)
-        status_list.sort()
         res_obj = list()
         for s in HTTPStatus:
             if s.value in status_list:
@@ -47,8 +47,8 @@ class OperationObject(BaseObject, ParameterMixin):
     https://swagger.io/specification/#operation-object
     """
     description: str
-    tags = []
-    _responses = {}
+    tags: List = field(default_factory=lambda: [])
+    _responses: dict = field(default_factory=lambda: {})
 
     @property
     def responses(self):

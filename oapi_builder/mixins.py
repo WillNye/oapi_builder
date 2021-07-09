@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 
 @dataclass
@@ -6,7 +7,7 @@ class HeaderMixin:
     """
     https://swagger.io/specification/#header-object
     """
-    _headers = dict()
+    _headers: dict = field(default_factory=lambda: {}, init=False)
 
     @property
     def headers(self):
@@ -21,7 +22,7 @@ class ParameterMixin:
     """
     https://swagger.io/specification/#parameter-object
     """
-    _parameters = []
+    _parameters: List = field(default_factory=lambda: [], init=False)
 
     def add_parameter(self, schema, name: str, required: bool = True, param_in: str = 'path', **kwargs):
         """
