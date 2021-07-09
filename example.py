@@ -20,7 +20,7 @@ spec = APISpec(
 SUPPORTED_MEDIA_FEEDS = ('reddit', 'instagram', 'hackernews', 'twitter')
 
 
-class UserFeedGet(Schema):
+class UserFeedGetResponse(Schema):
     media_feed = fields.Str(metadata=dict(
         description=f'The type of media feed the object represents. <br />'
                     f'Options:<br />   - {"<br />   - ".join(SUPPORTED_MEDIA_FEEDS)}'
@@ -34,18 +34,39 @@ class UserFeedGet(Schema):
     )
 
 
+class UserFeedGetParam(Schema):
+    media_feed = fields.Str(metadata=dict(
+        description=f'The type of media feed the object represents. <br />'
+                    f'Options:<br />   - {"<br />   - ".join(SUPPORTED_MEDIA_FEEDS)}'
+    ))
+
+
 standard_responses = ResponseObject.get_defaults([400, 401, 403, 404, 418, 429])
 
-feed_get_example = UserFeedGet().dump(dict(media_feed='reddit', username='test_user'))
-feed_get_200 = ResponseObject(status_code=200)
-feed_get_200.set_content(UserFeedGet, feed_get_example)
+feed_list_200 = ResponseObject(status_code=200)
+feed_list_200.set_content(UserFeedGetResponse, [
+    UserFeedGetResponse().dump(dict(media_feed=media_feed, username=f'test_user.{media_feed}'))
+    for media_feed in SUPPORTED_MEDIA_FEEDS
+])
 
-feed_get_operation = OperationObject(description='Retrieve a list of feeds for a user')
+feed_list_operation = OperationObject(description='Retrieve a list of feeds for a user')
+feed_list_operation.upsert_responses(standard_responses)
+feed_list_operation.upsert_responses([feed_list_200])
+
+feed_get_example = UserFeedGetResponse().dump(dict(media_feed='reddit', username='test_user'))
+feed_get_200 = ResponseObject(status_code=200)
+feed_get_200.set_content(UserFeedGetResponse, feed_get_example)
+
+feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user')
+feed_get_operation.add_parameter(UserFeedGetParam, 'media_feed')
 feed_get_operation.upsert_responses(standard_responses)
 feed_get_operation.upsert_responses([feed_get_200])
 
 spec.path(
     path="/feed",
+    operations=dict(get=feed_list_operation.to_dict())
+).path(
+    path="/feed/{media_feed}",
     operations=dict(get=feed_get_operation.to_dict())
 )
 
