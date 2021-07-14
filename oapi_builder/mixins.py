@@ -40,7 +40,7 @@ class ContentMixin:
     """
     https://swagger.io/specification/#media-type-object
     """
-    _content = {}
+    _content: dict = field(default_factory=lambda: {}, init=False)
 
     def set_content(self, schema, example, content_type: str = 'application/json', examples: dict = None):
         """
