@@ -73,6 +73,8 @@ class UserFeedDetailParam(Schema):
 standard_get_responses = ResponseObject.get_defaults([400, 401, 403, 404, 418, 429])
 standard_post_responses = ResponseObject.get_defaults([204, 400, 401, 418, 429])
 
+FEED_TAGS = ['Feed']
+
 """
 GET /feed/{media_feed}
 """
@@ -80,7 +82,7 @@ feed_get_example = UserFeedGetResponse().dump(dict(media_feed='reddit', username
 feed_get_200 = ResponseObject(status_code=200)
 feed_get_200.set_content(UserFeedGetResponse, feed_get_example)
 
-feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user')
+feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user', tags=FEED_TAGS)
 feed_get_operation.add_parameter(UserFeedDetailParam, 'media_feed')
 feed_get_operation.upsert_responses(standard_get_responses + [feed_get_200])
 
@@ -95,7 +97,7 @@ feed_put_response_example = UserFeedGetResponse().dump(dict(media_feed='reddit',
 feed_put_200 = ResponseObject(status_code=200)
 feed_put_200.set_content(UserFeedGetResponse, feed_put_response_example)
 
-feed_put_operation = OperationObject(description='Create a feed for a user')
+feed_put_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_put_operation.add_parameter(UserFeedDetailParam, 'media_feed')
 feed_put_operation.set_request_body(feed_put_request)
 feed_put_operation.upsert_responses(standard_get_responses + [feed_put_200])
@@ -103,7 +105,7 @@ feed_put_operation.upsert_responses(standard_get_responses + [feed_put_200])
 """
 DELETE /feed/{media_feed}
 """
-feed_del_operation = OperationObject(description='Remove a user feed')
+feed_del_operation = OperationObject(description='Remove a user feed', tags=FEED_TAGS)
 feed_del_operation.add_parameter(UserFeedDetailParam, 'media_feed')
 feed_del_operation.upsert_responses(standard_post_responses)
 
@@ -116,7 +118,7 @@ feed_list_200.set_content(UserFeedGetResponse, [
     for media_feed in SUPPORTED_MEDIA_FEEDS
 ])
 
-feed_list_operation = OperationObject(description='Retrieve a list of feeds for a user')
+feed_list_operation = OperationObject(description='Retrieve a list of feeds for a user', tags=FEED_TAGS)
 feed_list_operation.upsert_responses(standard_get_responses)
 feed_list_operation.upsert_responses([feed_list_200])
 
@@ -127,7 +129,7 @@ feed_post_example = UserFeedPostRequest().dump(dict(media_feed='reddit', usernam
 feed_post_request = RequestBodyObject(description='Request body to create a feed for a user', required=True)
 feed_post_request.set_content(UserFeedPostRequest, feed_post_example)
 
-feed_post_operation = OperationObject(description='Create a feed for a user')
+feed_post_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_post_operation.set_request_body(feed_post_request)
 feed_post_operation.upsert_responses(standard_post_responses)
 
