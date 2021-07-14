@@ -31,47 +31,37 @@ spec.components.security_schemes = {'default_oauth': oauth_security}
 
 SUPPORTED_MEDIA_FEEDS = ('reddit', 'instagram', 'hackernews', 'twitter')
 
-
-class UserFeedGetResponse(Schema):
-    media_feed = fields.Str(metadata=dict(
+user_feed_media_feed_metadata = dict(
         description=f'The type of media feed the object represents. <br />'
                     f'Options:<br />   - {"<br />   - ".join(SUPPORTED_MEDIA_FEEDS)}'
-    ))
-    username = fields.Str(metadata=dict(description="The user's username for the media feed."))
-    priority = fields.Int(
-        default=1,
-        metadata=dict(description='How high this feed should be boosted in the page.', doc_default="1")
     )
+user_feed_username_metadata = dict(description="The user's username for the media feed.")
+user_feed_priority_metadata = dict(description='How high this feed should be boosted in the page.', doc_default="1")
+
+
+class UserFeedGetResponse(Schema):
+    media_feed = fields.Str(metadata=user_feed_media_feed_metadata)
+    username = fields.Str(metadata=user_feed_username_metadata)
+    priority = fields.Int(default=1, metadata=user_feed_priority_metadata)
 
 
 class UserFeedPostRequest(Schema):
-    media_feed = fields.Str(required=True, metadata=dict(
-        description=f'The type of media feed the object represents. <br />'
-                    f'Options:<br />   - {"<br />   - ".join(SUPPORTED_MEDIA_FEEDS)}'
-    ))
-    username = fields.Str(required=True, metadata=dict(description="The user's username for the media feed."))
-    priority = fields.Int(
-        default=1,
-        metadata=dict(description='How high this feed should be boosted in the page.', doc_default="1")
-    )
+    media_feed = fields.Str(required=True, metadata=user_feed_media_feed_metadata)
+    username = fields.Str(required=True, metadata=user_feed_username_metadata)
+    priority = fields.Int(default=1, metadata=user_feed_priority_metadata)
 
 
 class UserFeedPutRequest(Schema):
-    username = fields.Str(metadata=dict(description="The user's username for the media feed."))
-    priority = fields.Int(
-        metadata=dict(description='How high this feed should be boosted in the page.', doc_default="1")
-    )
+    username = fields.Str(metadata=user_feed_username_metadata)
+    priority = fields.Int(metadata=user_feed_priority_metadata)
 
 
 class UserFeedDetailParam(Schema):
-    media_feed = fields.Str(metadata=dict(
-        description=f'The type of media feed the object represents. <br />'
-                    f'Options:<br />   - {"<br />   - ".join(SUPPORTED_MEDIA_FEEDS)}'
-    ))
+    media_feed = fields.Str(metadata=user_feed_media_feed_metadata)
 
 
-standard_get_responses = ResponseObject.get_defaults([400, 401, 403, 404, 418, 429])
-standard_post_responses = ResponseObject.get_defaults([204, 400, 401, 418, 429])
+STANDARD_GET_RESPONSES = ResponseObject.get_defaults([400, 401, 403, 404, 418, 429])
+STANDARD_POST_RESPONSES = ResponseObject.get_defaults([204, 400, 401, 418, 429])
 
 FEED_TAGS = ['Feed']
 
@@ -84,7 +74,7 @@ feed_get_200.set_content(UserFeedGetResponse, feed_get_example)
 
 feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user', tags=FEED_TAGS)
 feed_get_operation.add_parameter(UserFeedDetailParam, 'media_feed')
-feed_get_operation.upsert_responses(standard_get_responses + [feed_get_200])
+feed_get_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_get_200])
 
 """
 PUT /feed/{media_feed}
@@ -100,14 +90,14 @@ feed_put_200.set_content(UserFeedGetResponse, feed_put_response_example)
 feed_put_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_put_operation.add_parameter(UserFeedDetailParam, 'media_feed')
 feed_put_operation.set_request_body(feed_put_request)
-feed_put_operation.upsert_responses(standard_get_responses + [feed_put_200])
+feed_put_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_put_200])
 
 """
 DELETE /feed/{media_feed}
 """
 feed_del_operation = OperationObject(description='Remove a user feed', tags=FEED_TAGS)
 feed_del_operation.add_parameter(UserFeedDetailParam, 'media_feed')
-feed_del_operation.upsert_responses(standard_post_responses)
+feed_del_operation.upsert_responses(STANDARD_POST_RESPONSES)
 
 """
 LIST /feed
@@ -119,7 +109,7 @@ feed_list_200.set_content(UserFeedGetResponse, [
 ])
 
 feed_list_operation = OperationObject(description='Retrieve a list of feeds for a user', tags=FEED_TAGS)
-feed_list_operation.upsert_responses(standard_get_responses)
+feed_list_operation.upsert_responses(STANDARD_GET_RESPONSES)
 feed_list_operation.upsert_responses([feed_list_200])
 
 """
@@ -131,7 +121,7 @@ feed_post_request.set_content(UserFeedPostRequest, feed_post_example)
 
 feed_post_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_post_operation.set_request_body(feed_post_request)
-feed_post_operation.upsert_responses(standard_post_responses)
+feed_post_operation.upsert_responses(STANDARD_POST_RESPONSES)
 
 spec.path(
     path="/feed",
