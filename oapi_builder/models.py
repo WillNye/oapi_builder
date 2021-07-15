@@ -1,22 +1,59 @@
-import re
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import List
 from collections import OrderedDict
 
 from oapi_builder.mixins import ContentMixin, HeaderMixin, ParameterMixin
-
-
-def snake_to_camelback(str_obj: str) -> str:
-    return re.sub(r'_([a-z])', lambda x: x.group(1).upper(), str_obj)
+from oapi_builder.utils import snake_to_camelback
 
 
 class BaseObject:
     _is_camelback = True
 
+    def __init__(self, *args, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+        super(BaseObject, self).__init__(*args)
+
     def to_dict(self) -> dict:
         return {snake_to_camelback(k) if self._is_camelback else k: getattr(self, k) for k in dir(self)
                 if not k.startswith('_') and not callable(getattr(self, k)) and getattr(self, k)}
+
+
+@dataclass
+class ServerVariableObject(BaseObject):
+    """
+    https://swagger.io/specification/#server-variable-object
+
+    enum: list(str) - An enumeration of string values to be used if the substitution options are from a limited set.
+        Example:
+            port:
+              enum:
+                - '8443'
+                - '443'
+              default: '8443'
+    """
+    default: str
+    description: str = field(default=None)
+    enum: List = field(default_factory=lambda: [])
+
+
+@dataclass
+class ServerObject(BaseObject):
+    """
+    https://swagger.io/specification/#server-object
+    """
+    url: str
+    description: str = field(default=None)
+    _variables: dict = field(default_factory=lambda: {}, init=False)
+
+    @property
+    def variables(self):
+        return self._variables
+
+    def upsert_variable(self, name: str, server_var: ServerVariableObject):
+        self._variables[name] = server_var.to_dict() if isinstance(server_var, ServerVariableObject) else server_var
 
 
 @dataclass
@@ -26,6 +63,37 @@ class RequestBodyObject(BaseObject, ContentMixin):
     """
     description: str = field(default=None)
     required: bool = False
+
+
+@dataclass
+class LinkObject(BaseObject, ParameterMixin):
+    """
+    https://swagger.io/specification/#link-object
+
+    tags: list(str)
+    security: list(dict(component_security_scheme_key=list(f'{operation}:{tag}')))
+    """
+    operation_id: str = field(default=None)
+    operation_ref: str = field(default=None)
+    description: str = field(default=None)
+    _server: dict = field(default_factory=lambda: {})
+    _request_body: dict = field(default_factory=lambda: {})
+
+    @property
+    def request_body(self):
+        return self._request_body
+
+    @request_body.setter
+    def request_body(self, request_body: RequestBodyObject):
+        self._request_body = request_body.to_dict() if isinstance(request_body, RequestBodyObject) else request_body
+
+    @property
+    def server(self):
+        return self._server
+
+    @server.setter
+    def server(self, server: ServerObject):
+        self._server = server.to_dict() if isinstance(server, ServerObject) else server
 
 
 @dataclass
@@ -40,16 +108,19 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
     status_code: int
     description: str = field(default=None)
     tags: List = field(default_factory=lambda: [])
-    links: List = field(default_factory=lambda: [])  # https://swagger.io/specification/#link-object
+    _links: List = field(default_factory=lambda: [])
 
     def __post_init__(self):
         if not self.description:
             self.description = HTTPStatus(self.status_code).phrase
 
-    def to_dict(self) -> dict:
-        res_obj = super(ResponseObject, self).to_dict()
-        res_obj.pop('status_code', None)
-        return res_obj
+    @property
+    def links(self):
+        return self._links
+
+    @links.setter
+    def links(self, links):
+        self._links = [link.to_dict() if isinstance(link, LinkObject) else link for link in links]
 
     @classmethod
     def get_defaults(cls, status_list: list) -> list:
@@ -58,6 +129,11 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
         for s in HTTPStatus:
             if s.value in status_list:
                 res_obj.append(ResponseObject(status_code=s.value, description=s.phrase))
+        return res_obj
+
+    def to_dict(self) -> dict:
+        res_obj = super(ResponseObject, self).to_dict()
+        res_obj.pop('status_code', None)
         return res_obj
 
 
@@ -110,20 +186,26 @@ class SecuritySchemeObject(BaseObject, ParameterMixin):
     scheme: str = field(default=None)
     open_id_connect_url: str = field(default=None)
     name: str = field(default=None)
-    _in: str = field(default=None, metadata=dict(field_name="in"))
     flows: dict = field(default_factory=lambda: {})
+    key_in: str = field(default=None)
 
     def __post_init__(self):
         assert self.type in ["apiKey", "http", "oauth2", "openIdConnect"]
         if self.type == 'apiKey':
             assert self.name
-            assert self._in in ['query', 'header', 'cookie']
+            assert self.key_in in ['query', 'header', 'cookie']
         elif self.type == 'http':
             assert self.scheme
         elif self.type == 'oath2':
             assert self.flows
         elif self.type == 'openIdConnect':
             assert self.openIdConnectUrl
+
+    def to_dict(self) -> dict:
+        response = super(SecuritySchemeObject, self).to_dict()
+        if self.key_in:
+            response['in'] = response.pop('key_in')
+        return response
 
 
 @dataclass
@@ -143,15 +225,16 @@ class OperationObject(BaseObject, ParameterMixin):
     _responses: dict = field(default_factory=lambda: {}, init=False)
 
     @property
-    def responses(self):
-        return self._responses
-
-    @property
     def request_body(self):
         return self._request_body
 
-    def set_request_body(self, request_body):
+    @request_body.setter
+    def request_body(self, request_body):
         self._request_body = request_body.to_dict() if isinstance(request_body, RequestBodyObject) else request_body
+
+    @property
+    def responses(self):
+        return self._responses
 
     def upsert_responses(self, responses: list):
         responses = {str(r.status_code): r.to_dict() if isinstance(r, ResponseObject) else r
