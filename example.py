@@ -89,7 +89,7 @@ feed_put_200.set_content(UserFeedGetResponse, feed_put_response_example)
 
 feed_put_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_put_operation.add_parameter(UserFeedDetailParam, 'media_feed')
-feed_put_operation.set_request_body(feed_put_request)
+feed_put_operation.request_body = feed_put_request
 feed_put_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_put_200])
 
 """
@@ -120,7 +120,7 @@ feed_post_request = RequestBodyObject(description='Request body to create a feed
 feed_post_request.set_content(UserFeedPostRequest, feed_post_example)
 
 feed_post_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
-feed_post_operation.set_request_body(feed_post_request)
+feed_post_operation.request_body = feed_post_request
 feed_post_operation.upsert_responses(STANDARD_POST_RESPONSES)
 
 spec.path(
