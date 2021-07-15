@@ -3,7 +3,8 @@ from marshmallow import fields, Schema
 from apispec.ext.marshmallow import MarshmallowPlugin
 
 from oapi_builder.models import (
-    OAuthFlowObject, OAuthFlowsObject, SecuritySchemeObject, OperationObject, RequestBodyObject, ResponseObject
+    ContentObject, OAuthFlowObject, OAuthFlowsObject, OperationObject, ParameterObject,
+    RequestBodyObject, ResponseObject, SecuritySchemeObject
 )
 
 OAUTH_URL = 'https://service-name.domain.com/api/oauth'
@@ -70,10 +71,10 @@ GET /feed/{media_feed}
 """
 feed_get_example = UserFeedGetResponse().dump(dict(media_feed='reddit', username='test_user'))
 feed_get_200 = ResponseObject(status_code=200)
-feed_get_200.set_content(UserFeedGetResponse, feed_get_example)
+feed_get_200.content = ContentObject(UserFeedGetResponse, feed_get_example)
 
 feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user', tags=FEED_TAGS)
-feed_get_operation.add_parameter(UserFeedDetailParam, 'media_feed')
+feed_get_operation.parameters = [ParameterObject('media_feed', UserFeedDetailParam)]
 feed_get_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_get_200])
 
 """
@@ -81,14 +82,14 @@ PUT /feed/{media_feed}
 """
 feed_put_example = UserFeedPutRequest().dump(dict(priority=5))
 feed_put_request = RequestBodyObject(description='Request body to create a feed for a user', required=True)
-feed_put_request.set_content(UserFeedPostRequest, feed_put_example)
+feed_put_request.content = ContentObject(UserFeedPostRequest, feed_put_example)
 
 feed_put_response_example = UserFeedGetResponse().dump(dict(media_feed='reddit', username='test_user', priority=5))
 feed_put_200 = ResponseObject(status_code=200)
-feed_put_200.set_content(UserFeedGetResponse, feed_put_response_example)
+feed_put_200.content = ContentObject(UserFeedGetResponse, feed_put_response_example)
 
 feed_put_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
-feed_put_operation.add_parameter(UserFeedDetailParam, 'media_feed')
+feed_put_operation.parameters = [ParameterObject('media_feed', UserFeedDetailParam)]
 feed_put_operation.request_body = feed_put_request
 feed_put_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_put_200])
 
@@ -96,14 +97,14 @@ feed_put_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_put_200])
 DELETE /feed/{media_feed}
 """
 feed_del_operation = OperationObject(description='Remove a user feed', tags=FEED_TAGS)
-feed_del_operation.add_parameter(UserFeedDetailParam, 'media_feed')
+feed_del_operation.parameters = [ParameterObject('media_feed', UserFeedDetailParam)]
 feed_del_operation.upsert_responses(STANDARD_POST_RESPONSES)
 
 """
 LIST /feed
 """
 feed_list_200 = ResponseObject(status_code=200)
-feed_list_200.set_content(UserFeedGetResponse, [
+feed_list_200.content = ContentObject(UserFeedGetResponse, [
     UserFeedGetResponse().dump(dict(media_feed=media_feed, username=f'test_user.{media_feed}'))
     for media_feed in SUPPORTED_MEDIA_FEEDS
 ])
@@ -117,7 +118,7 @@ POST /feed
 """
 feed_post_example = UserFeedPostRequest().dump(dict(media_feed='reddit', username='test_user'))
 feed_post_request = RequestBodyObject(description='Request body to create a feed for a user', required=True)
-feed_post_request.set_content(UserFeedPostRequest, feed_post_example)
+feed_post_request.content = ContentObject(UserFeedPostRequest, feed_post_example)
 
 feed_post_operation = OperationObject(description='Create a feed for a user', tags=FEED_TAGS)
 feed_post_operation.request_body = feed_post_request
