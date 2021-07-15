@@ -32,6 +32,8 @@ class RequestBodyObject(BaseObject, ContentMixin):
 class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
     """
     https://swagger.io/specification/#response-object
+
+    tags: list(str)
     """
     _is_camelback = False
 
@@ -128,6 +130,9 @@ class SecuritySchemeObject(BaseObject, ParameterMixin):
 class OperationObject(BaseObject, ParameterMixin):
     """
     https://swagger.io/specification/#operation-object
+
+    tags: list(str)
+    security: list(dict(component_security_scheme_key=list(f'{operation}:{tag}')))
     """
     description: str
     summary: str = field(default=None)
@@ -149,7 +154,7 @@ class OperationObject(BaseObject, ParameterMixin):
         self._request_body = request_body.to_dict() if isinstance(request_body, RequestBodyObject) else request_body
 
     def upsert_responses(self, responses: list):
-        assert all(isinstance(r, ResponseObject) for r in responses)
-        responses = {str(r.status_code): r.to_dict() for r in responses} | self._responses
+        responses = {str(r.status_code): r.to_dict() if isinstance(r, ResponseObject) else r
+                     for r in list(responses)} | self._responses
         self._responses = OrderedDict(sorted(responses.items()))
 
