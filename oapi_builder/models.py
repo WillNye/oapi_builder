@@ -1,9 +1,9 @@
+import mimetypes
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import List
 from collections import OrderedDict
 
-from oapi_builder.mixins import ContentMixin, HeaderMixin, ParameterMixin
 from oapi_builder.utils import snake_to_camelback
 
 
@@ -19,6 +19,98 @@ class BaseObject:
     def to_dict(self) -> dict:
         return {snake_to_camelback(k) if self._is_camelback else k: getattr(self, k) for k in dir(self)
                 if not k.startswith('_') and not callable(getattr(self, k)) and getattr(self, k)}
+
+
+@dataclass
+class ParameterObject(BaseObject):
+    """
+    https://swagger.io/specification/#parameter-object
+    """
+    name: str
+    schema: any = field(default=None)
+    parameter_in: str = field(default='path')
+    description: str = field(default=None)
+    required: bool = field(default=None)
+    deprecated: bool = field(default=False)
+    allow_empty_value: bool = field(default=False)
+
+    def __post_init__(self):
+        assert self.parameter_in in ["query", "header", "path", "cookie"]
+        self.required = self.required or bool(self.parameter_in == 'path')
+
+    def to_dict(self) -> dict:
+        response = super(ParameterObject, self).to_dict()
+        response['in'] = response.pop('parameterIn')
+        if self.schema:
+            response['schema'] = self.schema
+
+        return response
+
+
+@dataclass
+class ContentObject(BaseObject):
+    """
+    https://swagger.io/specification/#media-type-object
+    https://swagger.io/specification/#example-object
+    examples: dict(obj_ref=ExampleObject)
+    """
+    _valid_content_types = {content_type: True for content_type in mimetypes.types_map.values()}
+    schema: any = field(default='')
+    example: dict = field(default=None)
+    examples: dict = field(default=None)
+    content_type: str = field(default='application/json')
+
+    def __post_init__(self):
+        assert self._valid_content_types.get(self.content_type, False)
+        self.schema = self.schema if isinstance(self.schema, str) else self.schema.__name__
+
+    def to_dict(self) -> dict:
+        response = super(ContentObject, self).to_dict()
+        return {response.pop('contentType'): response}
+
+
+@dataclass
+class ParameterMixin:
+    _parameters: List = field(default_factory=lambda: [], init=False)
+
+    @property
+    def parameters(self):
+        return self._parameters
+
+    @parameters.setter
+    def parameters(self, parameters):
+        self._parameters = [p.to_dict() if isinstance(p, ParameterObject) else p for p in parameters]
+
+
+@dataclass
+class ContentMixin:
+    """
+    https://swagger.io/specification/#media-type-object
+    """
+    _content: dict = field(default_factory=lambda: {}, init=False)
+
+    @property
+    def content(self):
+        return self._content
+
+    @content.setter
+    def content(self, val):
+        self._content = val.to_dict() if isinstance(val, ContentObject) else val
+
+
+@dataclass
+class HeaderMixin:
+    """
+    https://swagger.io/specification/#header-object
+    """
+    _headers: dict = field(default_factory=lambda: {}, init=False)
+
+    @property
+    def headers(self):
+        return self._headers
+
+    def upsert_headers(self, name, description, schema):
+        self._headers[name] = dict(description=description, schema=schema)
 
 
 @dataclass
@@ -204,7 +296,7 @@ class SecuritySchemeObject(BaseObject, ParameterMixin):
     def to_dict(self) -> dict:
         response = super(SecuritySchemeObject, self).to_dict()
         if self.key_in:
-            response['in'] = response.pop('key_in')
+            response['in'] = response.pop('keyIn')
         return response
 
 
