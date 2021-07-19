@@ -2,23 +2,27 @@ import mimetypes
 from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import List
-from collections import OrderedDict
 
 from oapi_builder.utils import snake_to_camelback
+from oapi_builder.fields import OAPIObjectAttr, OAPIObjectListAttr
 
 
 class BaseObject:
     _is_camelback = True
-
-    def __init__(self, *args, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-        super(BaseObject, self).__init__(*args)
+    _alias_map = dict()
 
     def to_dict(self) -> dict:
         return {snake_to_camelback(k) if self._is_camelback else k: getattr(self, k) for k in dir(self)
                 if not k.startswith('_') and not callable(getattr(self, k)) and getattr(self, k)}
+
+    @classmethod
+    def dump(cls, value):
+        if isinstance(value, dict):
+            value = cls(**value)
+        elif not isinstance(value, cls):
+            raise TypeError(f"Must be an {cls.__name__} instance or it's dict representation.")
+
+        return value.to_dict()
 
 
 @dataclass
@@ -33,6 +37,7 @@ class ParameterObject(BaseObject):
     required: bool = field(default=None)
     deprecated: bool = field(default=False)
     allow_empty_value: bool = field(default=False)
+    _alias_map = {'in': 'parameter_in'}
 
     def __post_init__(self):
         assert self.parameter_in in ["query", "header", "path", "cookie"]
@@ -54,11 +59,12 @@ class ContentObject(BaseObject):
     https://swagger.io/specification/#example-object
     examples: dict(obj_ref=ExampleObject)
     """
-    _valid_content_types = {content_type: True for content_type in mimetypes.types_map.values()}
     schema: any = field(default='')
-    example: dict = field(default=None)
+    example: any = field(default=None)
     examples: dict = field(default=None)
     content_type: str = field(default='application/json')
+    _valid_content_types = {content_type: True for content_type in mimetypes.types_map.values()}
+    _alias_map = {'type': 'content_type'}
 
     def __post_init__(self):
         assert self._valid_content_types.get(self.content_type, False)
@@ -70,47 +76,12 @@ class ContentObject(BaseObject):
 
 
 @dataclass
-class ParameterMixin:
-    _parameters: List = field(default_factory=lambda: [], init=False)
-
-    @property
-    def parameters(self):
-        return self._parameters
-
-    @parameters.setter
-    def parameters(self, parameters):
-        self._parameters = [p.to_dict() if isinstance(p, ParameterObject) else p for p in parameters]
-
-
-@dataclass
-class ContentMixin:
-    """
-    https://swagger.io/specification/#media-type-object
-    """
-    _content: dict = field(default_factory=lambda: {}, init=False)
-
-    @property
-    def content(self):
-        return self._content
-
-    @content.setter
-    def content(self, val):
-        self._content = val.to_dict() if isinstance(val, ContentObject) else val
-
-
-@dataclass
-class HeaderMixin:
+class HeaderObject:
     """
     https://swagger.io/specification/#header-object
     """
-    _headers: dict = field(default_factory=lambda: {}, init=False)
-
-    @property
-    def headers(self):
-        return self._headers
-
-    def upsert_headers(self, name, description, schema):
-        self._headers[name] = dict(description=description, schema=schema)
+    description: str = field(default=None)
+    schema: any = field(default='')
 
 
 @dataclass
@@ -138,27 +109,21 @@ class ServerObject(BaseObject):
     """
     url: str
     description: str = field(default=None)
-    _variables: dict = field(default_factory=lambda: {}, init=False)
-
-    @property
-    def variables(self):
-        return self._variables
-
-    def upsert_variable(self, name: str, server_var: ServerVariableObject):
-        self._variables[name] = server_var.to_dict() if isinstance(server_var, ServerVariableObject) else server_var
+    variables: dict = OAPIObjectAttr(ServerVariableObject, is_map=True)
 
 
 @dataclass
-class RequestBodyObject(BaseObject, ContentMixin):
+class RequestBodyObject(BaseObject):
     """
     https://swagger.io/specification/#request-body-object
     """
     description: str = field(default=None)
     required: bool = False
+    content: dict = OAPIObjectAttr(ContentObject)
 
 
 @dataclass
-class LinkObject(BaseObject, ParameterMixin):
+class LinkObject(BaseObject):
     """
     https://swagger.io/specification/#link-object
 
@@ -168,28 +133,13 @@ class LinkObject(BaseObject, ParameterMixin):
     operation_id: str = field(default=None)
     operation_ref: str = field(default=None)
     description: str = field(default=None)
-    _server: dict = field(default_factory=lambda: {})
-    _request_body: dict = field(default_factory=lambda: {})
-
-    @property
-    def request_body(self):
-        return self._request_body
-
-    @request_body.setter
-    def request_body(self, request_body: RequestBodyObject):
-        self._request_body = request_body.to_dict() if isinstance(request_body, RequestBodyObject) else request_body
-
-    @property
-    def server(self):
-        return self._server
-
-    @server.setter
-    def server(self, server: ServerObject):
-        self._server = server.to_dict() if isinstance(server, ServerObject) else server
+    parameters: List = OAPIObjectListAttr(ParameterObject)
+    request_body: dict = OAPIObjectAttr(RequestBodyObject)
+    server: dict = OAPIObjectAttr(ServerObject)
 
 
 @dataclass
-class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
+class ResponseObject(BaseObject):
     """
     https://swagger.io/specification/#response-object
 
@@ -200,19 +150,13 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
     status_code: int
     description: str = field(default=None)
     tags: List = field(default_factory=lambda: [])
-    _links: List = field(default_factory=lambda: [])
+    links: List = OAPIObjectListAttr(LinkObject)
+    content: dict = OAPIObjectAttr(ContentObject)
+    headers: dict = OAPIObjectAttr(HeaderObject, is_map=True)
 
     def __post_init__(self):
         if not self.description:
             self.description = HTTPStatus(self.status_code).phrase
-
-    @property
-    def links(self):
-        return self._links
-
-    @links.setter
-    def links(self, links):
-        self._links = [link.to_dict() if isinstance(link, LinkObject) else link for link in links]
 
     @classmethod
     def get_defaults(cls, status_list: list) -> list:
@@ -225,12 +169,12 @@ class ResponseObject(BaseObject, ContentMixin, HeaderMixin):
 
     def to_dict(self) -> dict:
         res_obj = super(ResponseObject, self).to_dict()
-        res_obj.pop('status_code', None)
+        del(res_obj['status_code'])
         return res_obj
 
 
 @dataclass
-class OAuthFlowObject(BaseObject, ContentMixin):
+class OAuthFlowObject(BaseObject):
     """
     https://swagger.io/specification/#oauth-flow-object
     """
@@ -238,6 +182,7 @@ class OAuthFlowObject(BaseObject, ContentMixin):
     authorization_url: str = field(default=None)
     refresh_url: str = field(default=None)
     token_url: str = field(default=None)
+    content: dict = OAPIObjectAttr(ContentObject)
 
     def to_dict(self) -> dict:
         response = super(OAuthFlowObject, self).to_dict()
@@ -246,7 +191,7 @@ class OAuthFlowObject(BaseObject, ContentMixin):
 
 
 @dataclass
-class OAuthFlowsObject(BaseObject, ContentMixin):
+class OAuthFlowsObject(BaseObject):
     """
     https://swagger.io/specification/#oauth-flows-object
     """
@@ -254,6 +199,7 @@ class OAuthFlowsObject(BaseObject, ContentMixin):
     client_credentials: dict = field(default_factory=lambda: {})
     implicit: dict = field(default_factory=lambda: {})
     password: dict = field(default_factory=lambda: {})
+    content: dict = OAPIObjectAttr(ContentObject)
 
     def __post_init__(self):
         if self.authorization_code:
@@ -268,7 +214,7 @@ class OAuthFlowsObject(BaseObject, ContentMixin):
 
 
 @dataclass
-class SecuritySchemeObject(BaseObject, ParameterMixin):
+class SecuritySchemeObject(BaseObject):
     """
     https://swagger.io/specification/#security-scheme-object
     """
@@ -280,6 +226,7 @@ class SecuritySchemeObject(BaseObject, ParameterMixin):
     name: str = field(default=None)
     flows: dict = field(default_factory=lambda: {})
     key_in: str = field(default=None)
+    parameters: List = OAPIObjectListAttr(ParameterObject)
 
     def __post_init__(self):
         assert self.type in ["apiKey", "http", "oauth2", "openIdConnect"]
@@ -301,7 +248,7 @@ class SecuritySchemeObject(BaseObject, ParameterMixin):
 
 
 @dataclass
-class OperationObject(BaseObject, ParameterMixin):
+class OperationObject(BaseObject):
     """
     https://swagger.io/specification/#operation-object
 
@@ -313,23 +260,10 @@ class OperationObject(BaseObject, ParameterMixin):
     tags: List = field(default_factory=lambda: [])
     security: List = field(default_factory=lambda: [])
     deprecated: bool = field(default=False)
-    _request_body: dict = field(default_factory=lambda: {}, init=False)
-    _responses: dict = field(default_factory=lambda: {}, init=False)
-
-    @property
-    def request_body(self):
-        return self._request_body
-
-    @request_body.setter
-    def request_body(self, request_body):
-        self._request_body = request_body.to_dict() if isinstance(request_body, RequestBodyObject) else request_body
-
-    @property
-    def responses(self):
-        return self._responses
+    request_body: dict = OAPIObjectAttr(RequestBodyObject)
+    responses: dict = OAPIObjectAttr(ResponseObject, is_map=True)
+    parameters: List = OAPIObjectListAttr(ParameterObject)
 
     def upsert_responses(self, responses: list):
-        responses = {str(r.status_code): r.to_dict() if isinstance(r, ResponseObject) else r
-                     for r in list(responses)} | self._responses
-        self._responses = OrderedDict(sorted(responses.items()))
-
+        for r in list(responses):
+            self.responses[str(r.__dict__['status_code'])] = r
