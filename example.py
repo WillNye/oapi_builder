@@ -9,11 +9,11 @@ from oapi_builder.models import (
 
 OAUTH_URL = 'https://service-name.domain.com/api/oauth'
 oauth_security = SecuritySchemeObject(type='oauth2', description='Default OAuth2', flows=OAuthFlowsObject(
-    implicit=OAuthFlowObject(authorization_url=f'{OAUTH_URL}/dialog', scopes={}).to_dict(),
+    implicit=OAuthFlowObject(authorization_url=f'{OAUTH_URL}/dialog', scopes={}),
     authorization_code=OAuthFlowObject(
         authorization_url=f'{OAUTH_URL}/dialog', token_url=f'{OAUTH_URL}/token', scopes={}
-    ).to_dict()
-).to_dict()).to_dict()
+    )
+)).to_dict()
 
 
 spec = APISpec(
@@ -74,7 +74,8 @@ feed_get_200 = ResponseObject(status_code=200)
 feed_get_200.content = ContentObject(UserFeedGetResponse, feed_get_example)
 
 feed_get_operation = OperationObject(description='Retrieve details for a single feed of a user', tags=FEED_TAGS)
-feed_get_operation.parameters = [ParameterObject('media_feed', UserFeedDetailParam)]
+media_feed_param = ParameterObject('media_feed', UserFeedDetailParam)
+feed_get_operation.parameters.append(media_feed_param)
 feed_get_operation.upsert_responses(STANDARD_GET_RESPONSES + [feed_get_200])
 
 """

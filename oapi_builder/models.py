@@ -119,7 +119,7 @@ class RequestBodyObject(BaseObject):
     """
     description: str = field(default=None)
     required: bool = False
-    content: dict = OAPIObjectAttr(ContentObject)
+    content: ContentObject = OAPIObjectAttr(ContentObject)
 
 
 @dataclass
@@ -134,8 +134,8 @@ class LinkObject(BaseObject):
     operation_ref: str = field(default=None)
     description: str = field(default=None)
     parameters: List = OAPIObjectListAttr(ParameterObject)
-    request_body: dict = OAPIObjectAttr(RequestBodyObject)
-    server: dict = OAPIObjectAttr(ServerObject)
+    request_body: RequestBodyObject = OAPIObjectAttr(RequestBodyObject)
+    server: ServerObject = OAPIObjectAttr(ServerObject)
 
 
 @dataclass
@@ -151,7 +151,7 @@ class ResponseObject(BaseObject):
     description: str = field(default=None)
     tags: List = field(default_factory=lambda: [])
     links: List = OAPIObjectListAttr(LinkObject)
-    content: dict = OAPIObjectAttr(ContentObject)
+    content: ContentObject = OAPIObjectAttr(ContentObject)
     headers: dict = OAPIObjectAttr(HeaderObject, is_map=True)
 
     def __post_init__(self):
@@ -182,7 +182,7 @@ class OAuthFlowObject(BaseObject):
     authorization_url: str = field(default=None)
     refresh_url: str = field(default=None)
     token_url: str = field(default=None)
-    content: dict = OAPIObjectAttr(ContentObject)
+    content: ContentObject = OAPIObjectAttr(ContentObject)
 
     def to_dict(self) -> dict:
         response = super(OAuthFlowObject, self).to_dict()
@@ -195,11 +195,11 @@ class OAuthFlowsObject(BaseObject):
     """
     https://swagger.io/specification/#oauth-flows-object
     """
-    authorization_code: dict = field(default_factory=lambda: {})
-    client_credentials: dict = field(default_factory=lambda: {})
-    implicit: dict = field(default_factory=lambda: {})
-    password: dict = field(default_factory=lambda: {})
-    content: dict = OAPIObjectAttr(ContentObject)
+    authorization_code: OAuthFlowObject = OAPIObjectAttr(OAuthFlowObject)
+    client_credentials: OAuthFlowObject = OAPIObjectAttr(OAuthFlowObject)
+    implicit: OAuthFlowObject = OAPIObjectAttr(OAuthFlowObject)
+    password: OAuthFlowObject = OAPIObjectAttr(OAuthFlowObject)
+    content: ContentObject = OAPIObjectAttr(ContentObject)
 
     def __post_init__(self):
         if self.authorization_code:
@@ -224,8 +224,8 @@ class SecuritySchemeObject(BaseObject):
     scheme: str = field(default=None)
     open_id_connect_url: str = field(default=None)
     name: str = field(default=None)
-    flows: dict = field(default_factory=lambda: {})
     key_in: str = field(default=None)
+    flows: OAuthFlowsObject = OAPIObjectAttr(OAuthFlowsObject)
     parameters: List = OAPIObjectListAttr(ParameterObject)
 
     def __post_init__(self):
@@ -260,7 +260,7 @@ class OperationObject(BaseObject):
     tags: List = field(default_factory=lambda: [])
     security: List = field(default_factory=lambda: [])
     deprecated: bool = field(default=False)
-    request_body: dict = OAPIObjectAttr(RequestBodyObject)
+    request_body: RequestBodyObject = OAPIObjectAttr(RequestBodyObject)
     responses: dict = OAPIObjectAttr(ResponseObject, is_map=True)
     parameters: List = OAPIObjectListAttr(ParameterObject)
 
