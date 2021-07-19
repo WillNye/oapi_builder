@@ -33,6 +33,11 @@ class OAPIObjectList(list):
 
 class OAPIObjectAttr:
     def __init__(self, object_type, is_map: bool = False):
+        """
+        :param object_type: The uninitialized class the attribute expects
+        :param is_map: If True, the value is meant to represent the OAPI object, not the entire value.
+                        An example of this is Operation.Responses = {Response.status_code: Response}
+        """
         self.object_type = object_type
         self.is_map = is_map
 
@@ -68,20 +73,16 @@ class OAPIObjectAttr:
             self.__dict__[self.name][key] = value
 
     def __repr__(self):
-        if self.__dict__.get(self.name):
-            return repr(self.__dict__.get(self.name))
-        elif self.__dict__:
-            return repr(self.__dict__)
+        if obj_val := self.__dict__.get(self.name):
+            return repr(obj_val)
         else:
-            return ""
+            return super(OAPIObjectAttr, self).__repr__()
 
     def __str__(self):
-        if self.__dict__.get(self.name):
-            return str(self.__dict__.get(self.name))
-        elif self.__dict__:
-            return str(self.__dict__)
+        if obj_val := self.__dict__.get(self.name):
+            return repr(obj_val)
         else:
-            return ""
+            return super(OAPIObjectAttr, self).__repr__()
 
     def __bool__(self):
         return bool(getattr(self, self.__dict__.get('name', 'Unknown'), False))
