@@ -6,7 +6,8 @@ LOGGER = getLogger(__file__)
 def validate(value, expected_type):
     if isinstance(value, dict):
         for k, v in expected_type._alias_map.items():
-            if alias_val := value.pop(k, None):
+            alias_val = value.pop(k, None)
+            if alias_val:
                 value[expected_type._alias_map[k]] = alias_val
 
         try:
@@ -73,14 +74,14 @@ class OAPIObjectAttr:
             self.__dict__[self.name][key] = value
 
     def __repr__(self):
-        if obj_val := self.__dict__.get(self.name):
-            return repr(obj_val)
+        if self.__dict__.get(self.name):
+            return repr(self.__dict__.get(self.name))
         else:
             return super(OAPIObjectAttr, self).__repr__()
 
     def __str__(self):
-        if obj_val := self.__dict__.get(self.name):
-            return repr(obj_val)
+        if self.__dict__.get(self.name):
+            return repr(self.__dict__.get(self.name))
         else:
             return super(OAPIObjectAttr, self).__repr__()
 
